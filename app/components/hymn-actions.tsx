@@ -3,6 +3,7 @@
 
 import { Download, Printer, Share2, Trash2, Music } from 'lucide-react'
 import { downloadHymnPDF, printHymnPDF } from '@/lib/utils/pdf-export'
+import { downloadSheetMusicPDF, printSheetMusic } from '@/lib/utils/sheet-music-export'
 import { useState } from 'react'
 
 interface HymnActionsProps {
@@ -14,9 +15,18 @@ interface HymnActionsProps {
     church_event?: string
     theme?: string
   }
+  arrangement?: {
+    voices: {
+      part: 'soprano' | 'alto' | 'tenor' | 'bass'
+      notation: string
+    }[]
+    keySignature?: string
+    timeSignature?: string
+    tempoBpm?: number
+  }
 }
 
-export default function HymnActions({ hymn }: HymnActionsProps) {
+export default function HymnActions({ hymn, arrangement }: HymnActionsProps) {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDownloadPDF = () => {
@@ -26,6 +36,40 @@ export default function HymnActions({ hymn }: HymnActionsProps) {
       language: hymn.language,
       churchEvent: hymn.church_event,
       theme: hymn.theme
+    })
+  }
+
+  const handleDownloadSheetMusic = () => {
+    if (!arrangement) {
+      alert('Sheet music arrangement not available')
+      return
+    }
+
+    downloadSheetMusicPDF({
+      title: hymn.title,
+      language: hymn.language,
+      theme: hymn.theme,
+      voices: arrangement.voices,
+      keySignature: arrangement.keySignature,
+      timeSignature: arrangement.timeSignature,
+      tempoBpm: arrangement.tempoBpm
+    })
+  }
+
+  const handlePrintSheetMusic = () => {
+    if (!arrangement) {
+      alert('Sheet music arrangement not available')
+      return
+    }
+
+    printSheetMusic({
+      title: hymn.title,
+      language: hymn.language,
+      theme: hymn.theme,
+      voices: arrangement.voices,
+      keySignature: arrangement.keySignature,
+      timeSignature: arrangement.timeSignature,
+      tempoBpm: arrangement.tempoBpm
     })
   }
 
@@ -86,14 +130,14 @@ export default function HymnActions({ hymn }: HymnActionsProps) {
     <div className="space-y-4">
       {/* Main Actions */}
       <div className="grid grid-cols-2 gap-4">
-        <button 
+        <button
           onClick={handleDownloadPDF}
           className="flex items-center justify-center gap-2 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold"
         >
           <Download className="w-5 h-5" />
           Download PDF
         </button>
-        <button 
+        <button
           onClick={handlePrint}
           className="flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
         >
@@ -102,16 +146,36 @@ export default function HymnActions({ hymn }: HymnActionsProps) {
         </button>
       </div>
 
+      {/* Sheet Music Export - Only show if arrangement available */}
+      {arrangement && (
+        <div className="grid grid-cols-2 gap-4 border-t border-gray-200 pt-4">
+          <button
+            onClick={handleDownloadSheetMusic}
+            className="flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+          >
+            <Download className="w-5 h-5" />
+            Sheet Music PDF
+          </button>
+          <button
+            onClick={handlePrintSheetMusic}
+            className="flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold"
+          >
+            <Printer className="w-5 h-5" />
+            Print Sheet Music
+          </button>
+        </div>
+      )}
+
       {/* Secondary Actions */}
       <div className="flex gap-4">
-        <button 
+        <button
           onClick={handleShare}
           className="flex-1 flex items-center justify-center gap-2 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
         >
           <Share2 className="w-4 h-4" />
           Share
         </button>
-        <button 
+        <button
           onClick={handleDelete}
           disabled={isDeleting}
           className="flex-1 flex items-center justify-center gap-2 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"

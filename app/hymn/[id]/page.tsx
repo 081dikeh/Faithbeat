@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Music, Globe, Calendar, Download, Share2, Trash2 } from 'lucide-react'
+import HymnActions from '@/app/components/hymn-actions'
 
 export default async function HymnPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -30,6 +31,14 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
     if (hymn.user_id !== user.id && !hymn.is_public) {
         redirect('/dashboard')
     }
+
+    // Fetch SATB arrangement if available
+    const { data: arrangement } = await supabase
+        .from('satb_arrangements')
+        .select('*')
+        .eq('hymn_id', id)
+        .eq('status', 'ready')
+        .single()
 
     const languageLabels: Record<string, string> = {
         english: 'English 🇬🇧',
@@ -134,16 +143,15 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-4">
-                        <button className="flex-1 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center justify-center gap-2">
-                            <Download className="w-5 h-5" />
-                            Download PDF
-                        </button>
-                        <button className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold flex items-center justify-center gap-2">
-                            <Music className="w-5 h-5" />
-                            Generate Audio
-                        </button>
-                    </div>
+                    <HymnActions
+                        hymn={hymn}
+                        arrangement={arrangement ? {
+                            voices: arrangement.voices,
+                            keySignature: arrangement.key_signature,
+                            timeSignature: arrangement.time_signature,
+                            tempoBpm: arrangement.tempo_bpm
+                        } : undefined}
+                    />
 
                     {/* Stats */}
                     <div className="mt-8 pt-8 border-t border-gray-200 grid grid-cols-3 gap-4 text-center">
@@ -165,6 +173,7 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
                         </div>
                     </div>
                 </div>
+
             </main>
         </div>
     )
