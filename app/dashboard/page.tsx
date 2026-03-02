@@ -6,7 +6,7 @@ import { Music, Plus, Library, Calendar, LogOut } from 'lucide-react'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-  
+
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -114,6 +114,20 @@ export default async function DashboardPage() {
             <h3 className="text-2xl font-bold text-gray-900 mb-2">My Hymns</h3>
             <p className="text-gray-600">
               View and manage your created hymns
+            </p>
+          </Link>
+
+          <Link
+            href="/compose"
+            className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-8 text-white hover:from-green-700 hover:to-green-800 transition-all"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <Music className="w-12 h-12" />
+              <span className="text-4xl font-bold opacity-20">♫</span>
+            </div>
+            <h3 className="text-2xl font-bold mb-2">Compose & Arrange</h3>
+            <p className="text-green-100">
+              Generate SATB notation and playback
             </p>
           </Link>
         </div>

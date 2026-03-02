@@ -47,6 +47,8 @@ export interface SATBArrangement {
   tempoBpm: number;
   timeSignature: string;
   voices: SATBVoiceLine[];
+  // optional ABC text representation when generated via ABC notation
+  abcNotation?: string;
   musicXml: string;
   midiUrl: string | null;
   pdfUrl: string | null;
