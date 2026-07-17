@@ -16,7 +16,7 @@ export default function HomePage() {
             href="/create"
             className="px-4 py-2 text-sm text-ink-soft/70 hover:text-brass transition-colors"
           >
-            Create Hymn
+            Create Hymn 
           </Link>
           <Link
             href="/login"
@@ -72,7 +72,7 @@ export default function HomePage() {
             <Globe className="w-10 h-10 text-brass mx-auto mb-4" />
             <h3 className="font-[family-name:var(--font-display)] text-xl italic text-ink mb-2">Local Languages</h3>
             <p className="text-ink-soft/70 text-[15px]">
-              Generate hymns in Igbo, Yoruba, Hausa, and English
+              Generate hymns in Igbo, Yoruba, Hausa, & English
             </p>
           </div>
 
