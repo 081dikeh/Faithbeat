@@ -16,7 +16,7 @@ export default function HomePage() {
             href="/create"
             className="px-4 py-2 text-sm text-ink-soft/70 hover:text-brass transition-colors"
           >
-            Create Hymn 
+            Create Hymn
           </Link>
           <Link
             href="/login"
