@@ -1,111 +1,48 @@
 // app/api/generate-hymn/route.ts
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { auth } from '@/lib/auth/server'
+import { AI_NOT_CONFIGURED, aiErrorResponse } from '@/lib/ai/errors'
+import { parseLyrics } from '@/lib/music/lyrics'
+import { countSyllables } from '@/lib/music/syllables'
+import { Language, normalizeLanguage } from '@/lib/music/types'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+const EVENTS = ['general', 'christmas', 'easter', 'lent', 'advent', 'pentecost']
 
-export async function POST(request: Request) {
-  let title: string = ''
-  let description: string = ''
-  let theme: string = ''
-  let language: string = 'english'
-  let churchEvent: string = 'general'
-
-  try {
-    const body = await request.json()
-    title = (body.title || '').trim()
-    description = (body.description || '').trim()
-    theme = (body.theme || '').trim()
-    language = body.language || 'english'
-    churchEvent = body.churchEvent || 'general'
-
-    // Description is the primary creative input now. Theme is kept as an
-    // optional short tag (used for filtering/browsing), and falls back to
-    // the description if the user didn't set one.
-    if (!description && !theme) {
-      return NextResponse.json(
-        { error: 'Please describe what the hymn should be about' },
-        { status: 400 }
-      )
-    }
-    if (!theme) theme = description.split(' ').slice(0, 6).join(' ')
-
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn('OpenAI API key not found, using mock data')
-      return generateMockResponse(title, theme, language, churchEvent)
-    }
-
-    const { title: finalTitle, lyrics } = await generateWithOpenAI(
-      title, description, theme, language, churchEvent
-    )
-
-    return NextResponse.json({
-      title: finalTitle,
-      lyrics,
-      language,
-      theme,
-      description,
-      churchEvent
-    })
-  } catch (error: any) {
-    console.error('Hymn generation error:', error)
-
-    if (error.code === 'insufficient_quota' || error.status === 429) {
-      console.warn('OpenAI quota exceeded, using mock data')
-      return generateMockResponse(title, theme, language, churchEvent)
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to generate hymn' },
-      { status: 500 }
-    )
-  }
+const LANGUAGE_INSTRUCTIONS: Record<Language, string> = {
+  english: 'in English',
+  igbo: 'in Igbo language (Nigerian indigenous language)',
+  yoruba: 'in Yoruba language (Nigerian indigenous language)',
+  hausa: 'in Hausa language (Nigerian indigenous language)',
 }
 
-async function generateWithOpenAI(
-  userTitle: string,
-  description: string,
-  theme: string,
-  language: string,
-  event: string
-): Promise<{ title: string; lyrics: string }> {
+const SYSTEM =
+  'You are a Christian hymn writer with deep knowledge of African languages and church music traditions. You write lyrics that are directly grounded in the specific description the user gives you, not generic filler.'
 
-  const languageInstructions: Record<string, string> = {
-    english: 'in English',
-    igbo: 'in Igbo language (Nigerian indigenous language)',
-    yoruba: 'in Yoruba language (Nigerian indigenous language)',
-    hausa: 'in Hausa language (Nigerian indigenous language)'
-  }
+function buildPrompt(title: string, description: string, language: Language, event: string): string {
+  const eventContext =
+    event !== 'general' ? `This hymn is for ${event}. Include appropriate biblical references and themes for this occasion.` : ''
+  const titleLine = title
+    ? `The hymn's title is "${title}". Write lyrics that genuinely fit this title.`
+    : 'No title was given; the lyrics should still be specific to the description.'
+  return `Create a Christian hymn ${LANGUAGE_INSTRUCTIONS[language]} with these specifications:
 
-  const eventContext = event !== 'general'
-    ? `This hymn is for ${event}. Include appropriate biblical references and themes for this occasion.`
-    : ''
+${titleLine}
 
-  const titleInstruction = userTitle
-    ? `The hymn's title is "${userTitle}". Write lyrics that genuinely fit this title.`
-    : `No title was given — invent one that fits the description below.`
-
-  const prompt = `Create a Christian hymn ${languageInstructions[language]} with these specifications:
-
-${titleInstruction}
-
-What the hymn should be about (in the user's own words): "${description || theme}"
+What the hymn should be about (in the user's own words): "${description}"
 Occasion: ${event}
 ${eventContext}
 
 Requirements:
 - The lyrics must clearly reflect the specific description above, not just a generic theme
-- Write exactly 4 verses
-- Each verse must have exactly 4 lines
+- Write exactly 4 verses of exactly 4 lines each
+- The hymn will be set to ONE tune sung to every verse, so every verse must use the same syllable pattern: line 1 of every verse has the same number of syllables, line 2 of every verse has the same number, and so on. Aim for 8 syllables per line (about 6-10 is acceptable)
 - Traditional church hymn structure (AABB or ABAB rhyme scheme)
-- Appropriate for congregational worship
-- Biblical and theologically sound
-- Use simple, singable language
-- Make it culturally appropriate for African church context
+- Appropriate for congregational worship; biblical and theologically sound
+- Use simple, singable language, culturally appropriate for an African church context
+- If writing in Igbo, Yoruba or Hausa, use proper diacritical marks and correct grammar
 
-Format:
+Format exactly like this, with a blank line between verses and nothing else:
 Verse 1:
 [line 1]
 [line 2]
@@ -113,168 +50,109 @@ Verse 1:
 [line 4]
 
 Verse 2:
-[continue same pattern]
-
-Important: If writing in Igbo, Yoruba, or Hausa, use proper diacritical marks and ensure correct grammar.`
-
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a Christian hymn writer with deep knowledge of African languages and church music traditions. You write lyrics that are directly grounded in the specific description the user gives you, not generic filler.'
-      },
-      { role: 'user', content: prompt }
-    ],
-    temperature: 0.8,
-    max_tokens: 1000
-  })
-
-  const lyrics = completion.choices[0].message.content || ''
-
-  if (userTitle) {
-    return { title: userTitle, lyrics }
-  }
-
-  const titlePrompt = `Create a short, meaningful hymn title (3-6 words) for a hymn about: "${description || theme}" for ${event}. Reply with ONLY the title, nothing else.`
-
-  const titleCompletion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: titlePrompt }],
-    temperature: 0.7,
-    max_tokens: 20
-  })
-
-  const title = titleCompletion.choices[0].message.content?.trim() || generateMockTitle(theme, event)
-
-  return { title, lyrics }
+...`
 }
 
-// Fallback mock data (used only when OPENAI_API_KEY is unset, or on quota errors)
-function generateMockResponse(userTitle: string, theme: string, language: string, event: string) {
-  const title = userTitle || generateMockTitle(theme, event)
-  const lyrics = getMockLyrics(language)
-
-  return NextResponse.json({
-    title,
-    lyrics,
-    language,
-    theme,
-    churchEvent: event,
-    note: 'Generated with mock data (AI unavailable)'
+/** Returns a list of problems; empty means the lyrics are structurally sound and singable to one tune. */
+function checkLyrics(lyrics: string, language: Language): { structure: string[]; meter: string[] } {
+  const structure: string[] = []
+  const meter: string[] = []
+  const verses = parseLyrics(lyrics)
+  if (verses.length !== 4) structure.push(`it has ${verses.length} verses instead of 4`)
+  verses.forEach((v, i) => {
+    if (v.length !== 4) structure.push(`verse ${i + 1} has ${v.length} lines instead of 4`)
   })
+  if (structure.length) return { structure, meter }
+  for (let j = 0; j < 4; j++) {
+    const counts = verses.map((v) => countSyllables(v[j], language))
+    if (Math.max(...counts) - Math.min(...counts) > 2) {
+      meter.push(`line ${j + 1} has ${counts.join(' / ')} syllables across the four verses; these must match`)
+    }
+  }
+  return { structure, meter }
 }
 
-function generateMockTitle(theme: string, event: string): string {
-  const eventTitles: Record<string, string> = {
-    christmas: 'A Christmas Carol of Joy',
-    easter: 'Risen Lord, Our Victory',
-    lent: 'In Humility We Seek',
-    advent: 'Come, Emmanuel',
-    pentecost: 'Spirit of the Living God',
-    general: 'Hymn of Praise'
+export async function POST(request: Request) {
+  const { data: session } = await auth.getSession()
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Please sign in to generate hymns.' }, { status: 401 })
   }
-  return eventTitles[event] || theme.split(' ').slice(0, 4).join(' ')
-}
-
-function getMockLyrics(language: string): string {
-  const mockLyrics: Record<string, string> = {
-    english: `Verse 1:
-O Lord, our God, how great Thou art,
-Your love flows from a gracious heart,
-In every season, every day,
-You guide us on our homeward way.
-
-Verse 2:
-When troubles come and storms arise,
-We lift our hearts unto the skies,
-Your mercy covers like the dawn,
-In You our hope is firmly drawn.
-
-Verse 3:
-Through valleys deep and mountains high,
-Your faithful hand is ever nigh,
-In joy and sorrow, pain and praise,
-We sing Your glory all our days.
-
-Verse 4:
-Now join together, voices raise,
-In harmony we sing Your praise,
-Forever more our song shall be,
-O Lord, we worship, we are free!`,
-
-    igbo: `Nkeji 1:
-Chineke anyi, I di ukwu nke ukwu,
-I huru anyi n'anya mgbe nile,
-N'oge obula, ubochi obula,
-I na-edu anyi n'uzo ezi okwu.
-
-Nkeji 2:
-Mgbe nsogbu bia, oké ifufe,
-Anyi na-ebuli obi anyi elu,
-Ebere Gi di ka chi owuwa anyanwu,
-Na Gi ka olile anyi di siri ike.
-
-Nkeji 3:
-N'akuku ugwu na ndagwurugwu,
-Aka Gi di nso mgbe nile,
-N'onu, n'iru ihe, n'otuto,
-Anyi na-eto Gi ubochi nile.
-
-Nkeji 4:
-Jikota onu, ebulie olu,
-N'otu obi anyi na-eto Gi,
-Rue mgbe ebighebi nke ebighebi,
-Chineke, anyi na-efe Gi n'udo!`,
-
-    yoruba: `Ẹsẹ 1:
-Oluwa wa, O tobi ju gbogbo lọ,
-Ifẹ Re nla julọ lailai,
-Ni gbogbo akoko, gbogbo ọjọ,
-O nto wa ni ọna ododo.
-
-Ẹsẹ 2:
-Nigbati wahala ba de tan,
-A gbe okan wa soke si ọrun,
-Aanu Re dabi ilẹ owurọ,
-Ninu Re ni ireti wa wa.
-
-Ẹsẹ 3:
-Larin afonifoji ati oke nla,
-Ọwọ Re wa pẹlu wa nigbagbogbo,
-Ninu ayo ati ibanujẹ,
-A nkorin iyin Re lojoojumọ.
-
-Ẹsẹ 4:
-Ẹ jọ wọn papọ, ẹ gbe ohun soke,
-Lapapọ a nyin O loga pupo,
-Titi lailai orin wa yoo jẹ,
-Oluwa, a nsin O, a ni ominira!`,
-
-    hausa: `Aya 1:
-Ya Ubangiji, Kai babba ne sosai,
-Ƙaunarka ta cika zukatanmu,
-A kowane lokaci, kowace rana,
-Kana jagorantar mu zuwa gida.
-
-Aya 2:
-Lokacin da matsaloli suka zo,
-Muna ɗaga zukatanmu zuwa sama,
-Jinƙanka ya rufe kamar safiya,
-A cikin Ka ne begenmu yake.
-
-Aya 3:
-Ta cikin kwaruruka da duwatsu manya,
-Hannunka yana kusa kullum,
-Cikin farin ciki da baƙin ciki,
-Muna rera yabonKa kullum.
-
-Aya 4:
-Ku haɗu tare, ku ɗaga murya,
-Cikin haɗin gwiwa muna yabonKa,
-Har abada waƙarmu zata kasance,
-Ya Ubangiji, muna bauta muna da 'yanci!`
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json(AI_NOT_CONFIGURED, { status: 503 })
   }
 
-  return mockLyrics[language] || mockLyrics.english
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request.' }, { status: 400 })
+  }
+
+  const title = String(body.title ?? '').trim().slice(0, 120)
+  const description = String(body.description ?? body.theme ?? '').trim().slice(0, 800)
+  const language = normalizeLanguage(body.language)
+  const event = EVENTS.includes(String(body.churchEvent)) ? String(body.churchEvent) : 'general'
+
+  if (!description) {
+    return NextResponse.json({ error: 'Please describe what the hymn should be about.' }, { status: 400 })
+  }
+
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: 'system', content: SYSTEM },
+      { role: 'user', content: buildPrompt(title, description, language, event) },
+    ]
+    const ask = async () => {
+      const c = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages, temperature: 0.8, max_tokens: 1200 })
+      return (c.choices[0]?.message?.content ?? '').trim()
+    }
+
+    let lyrics = await ask()
+    let check = checkLyrics(lyrics, language)
+    if (check.structure.length || check.meter.length) {
+      // one corrective retry that tells the model exactly what was wrong
+      messages.push({ role: 'assistant', content: lyrics })
+      messages.push({
+        role: 'user',
+        content: `That draft has problems: ${[...check.structure, ...check.meter].join('; ')}. Rewrite the whole hymn fixing them, keeping the same format and subject.`,
+      })
+      const retry = await ask()
+      const retryCheck = checkLyrics(retry, language)
+      if (retryCheck.structure.length === 0) {
+        lyrics = retry
+        check = retryCheck
+      }
+    }
+    if (check.structure.length) {
+      return NextResponse.json({ error: 'The generated hymn was malformed. Please try again.', code: 'ai_malformed' }, { status: 502 })
+    }
+
+    let finalTitle = title
+    if (!finalTitle) {
+      const t = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'user',
+            content: `Create a short, meaningful hymn title (3-6 words) in ${language === 'english' ? 'English' : language} for a hymn about: "${description}" for ${event}. Reply with ONLY the title, nothing else.`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 30,
+      })
+      finalTitle = (t.choices[0]?.message?.content ?? '').trim().replace(/^["“]|["”]$/g, '') || 'Untitled Hymn'
+    }
+
+    return NextResponse.json({
+      title: finalTitle,
+      lyrics,
+      language,
+      theme: description.split(' ').slice(0, 6).join(' '),
+      description,
+      churchEvent: event,
+    })
+  } catch (error) {
+    return aiErrorResponse(error)
+  }
 }

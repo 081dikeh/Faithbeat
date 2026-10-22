@@ -63,7 +63,11 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
 
       const data = await response.json()
 
-      if (data.error) throw new Error(data.error)
+      if (response.status === 401) {
+        window.location.href = '/login?redirectTo=/create'
+        return
+      }
+      if (!response.ok || data.error) throw new Error(data.error || 'Failed to generate hymn.')
 
       setGeneratedLyrics(data.lyrics)
       setResultTitle(data.title)
@@ -149,6 +153,9 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
         }
         throw new Error(data.error)
       }
+
+      // Land on the hymn page, where the SATB arrangement can be composed.
+      window.location.href = `/hymn/${data.hymn.id}`
     } catch (error: any) {
       setErrorMsg(`Failed to save hymn: ${error.message}`)
     } finally {

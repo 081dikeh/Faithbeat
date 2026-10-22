@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:music": "npx tsx scripts/test-music.ts"
   },
   "dependencies": {
     "@neondatabase/auth": "^0.4.2-beta",

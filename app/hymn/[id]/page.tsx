@@ -5,6 +5,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Music, Globe, Calendar } from 'lucide-react'
 import HymnActions from '@/app/components/hymn-actions'
+import ArrangementPanel from '@/app/components/arrangement-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,11 +27,13 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
         redirect('/dashboard')
     }
 
-    const [arrangement] = await sql`
-        select * from satb_arrangements
-        where hymn_id = ${id} and status = 'ready'
+    const [arrangement] = (await sql`
+        select abc_notation, key_signature, tempo_bpm from satb_arrangements
+        where hymn_id = ${id} and status = 'ready' and abc_notation is not null
+        order by created_at desc
         limit 1
-    `
+    `) as { abc_notation: string; key_signature: string | null; tempo_bpm: number | null }[]
+    const isOwner = hymn.user_id === session.user.id
 
     const languageLabels: Record<string, string> = {
         english: 'English',
@@ -112,6 +115,17 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
                         </div>
                     </div>
 
+                    {/* Sheet music & playback */}
+                    <ArrangementPanel
+                        hymnId={hymn.id}
+                        isOwner={isOwner}
+                        initial={arrangement ? {
+                            abc: arrangement.abc_notation,
+                            keySignature: arrangement.key_signature,
+                            tempo: arrangement.tempo_bpm
+                        } : null}
+                    />
+
                     {/* Audio Section (if available) */}
                     {hymn.audio_url && (
                         <div className="mb-8">
@@ -126,15 +140,7 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
                     )}
 
                     {/* Actions */}
-                    <HymnActions
-                        hymn={hymn}
-                        arrangement={arrangement ? {
-                            voices: arrangement.voices,
-                            keySignature: arrangement.key_signature,
-                            timeSignature: arrangement.time_signature,
-                            tempoBpm: arrangement.tempo_bpm
-                        } : undefined}
-                    />
+                    <HymnActions hymn={hymn} />
 
                     {/* Stats */}
                     <div className="mt-8 pt-8 border-t border-brass-soft/30 grid grid-cols-3 gap-4 text-center">
