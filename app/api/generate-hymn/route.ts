@@ -6,6 +6,7 @@ import { AI_NOT_CONFIGURED, aiErrorResponse } from '@/lib/ai/errors'
 import { parseLyrics } from '@/lib/music/lyrics'
 import { countSyllables } from '@/lib/music/syllables'
 import { Language, normalizeLanguage } from '@/lib/music/types'
+import { limitMessage, releaseUsage, reserveUsage, type Reservation } from '@/lib/usage'
 
 const EVENTS = ['general', 'christmas', 'easter', 'lent', 'advent', 'pentecost']
 
@@ -97,6 +98,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Please describe what the hymn should be about.' }, { status: 400 })
   }
 
+  let reservation: Reservation
+  try {
+    reservation = await reserveUsage(session.user.id, 'hymn')
+  } catch (e) {
+    console.error('Usage tracking failed (has migration 002 been run?):', e)
+    return NextResponse.json({ error: 'The service is temporarily unavailable. Please try again shortly.' }, { status: 503 })
+  }
+  if (!reservation.ok) {
+    return NextResponse.json({ error: limitMessage('hymn', reservation.limit), code: 'rate_limited' }, { status: 429 })
+  }
+
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -125,6 +137,7 @@ export async function POST(request: Request) {
       }
     }
     if (check.structure.length) {
+      await releaseUsage(reservation.id)
       return NextResponse.json({ error: 'The generated hymn was malformed. Please try again.', code: 'ai_malformed' }, { status: 502 })
     }
 
@@ -153,6 +166,7 @@ export async function POST(request: Request) {
       churchEvent: event,
     })
   } catch (error) {
+    await releaseUsage(reservation.id)
     return aiErrorResponse(error)
   }
 }

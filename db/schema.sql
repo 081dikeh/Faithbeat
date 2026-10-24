@@ -60,3 +60,13 @@ create trigger hymns_set_updated_at before update on hymns
 drop trigger if exists satb_set_updated_at on satb_arrangements;
 create trigger satb_set_updated_at before update on satb_arrangements
   for each row execute function set_updated_at();
+
+-- Per-user usage log for rate limiting AI generations (see migrations/002).
+create table if not exists generation_usage (
+  id         uuid primary key default uuid_generate_v4(),
+  user_id    uuid not null references neon_auth."user"(id) on delete cascade,
+  kind       text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists generation_usage_user_kind_time_idx
+  on generation_usage (user_id, kind, created_at desc);

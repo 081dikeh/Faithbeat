@@ -9,6 +9,7 @@ import { proposeContour } from '@/lib/ai/melody'
 import { analyzeLyrics } from '@/lib/music/lyrics'
 import { composeHymn } from '@/lib/music/compose'
 import { isKeyName, normalizeLanguage } from '@/lib/music/types'
+import { limitMessage, releaseUsage, reserveUsage } from '@/lib/usage'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -55,7 +56,20 @@ export async function POST(request: Request) {
   let tempo: number | undefined
   let key = isKeyName(body.key) ? body.key : undefined
   if (process.env.OPENAI_API_KEY) {
+    let reservationId: string | null = null
     try {
+      const reservation = await reserveUsage(session.user.id, 'compose')
+      if (!reservation.ok) {
+        warnings.push(`${limitMessage('compose', reservation.limit)} This melody was generated algorithmically instead.`)
+      } else {
+        reservationId = reservation.id
+      }
+    } catch (e) {
+      console.error('Usage tracking failed (has migration 002 been run?):', e)
+      warnings.push('The AI melody service is temporarily unavailable, so the melody was generated algorithmically.')
+    }
+    if (reservationId) {
+     try {
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
       const proposal = await proposeContour(openai, {
         title: hymn.title,
@@ -71,8 +85,10 @@ export async function POST(request: Request) {
         if (!key && isKeyName(proposal.key)) key = proposal.key
       }
     } catch (e) {
+      await releaseUsage(reservationId)
       console.error('Melody proposal failed, falling back to algorithmic melody:', e)
       warnings.push('The AI service was unavailable, so the melody was generated algorithmically.')
+     }
     }
   } else {
     warnings.push('AI is not configured, so the melody was generated algorithmically.')

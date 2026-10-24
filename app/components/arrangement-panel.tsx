@@ -32,6 +32,7 @@ export default function ArrangementPanel({ hymnId, isOwner, initial }: Props) {
   const scoreRef = useRef<HTMLDivElement>(null)
   const audioRef = useRef<HTMLDivElement>(null)
   const controlRef = useRef<abcjs.SynthObjectController | null>(null)
+  const countedPlayRef = useRef(false)
 
   useEffect(() => {
     const scoreEl = scoreRef.current
@@ -52,6 +53,10 @@ export default function ArrangementPanel({ hymnId, isOwner, initial }: Props) {
           audioEl,
           {
             onEvent: (ev: abcjs.NoteTimingEvent) => {
+              if (!isOwner && !countedPlayRef.current) {
+                countedPlayRef.current = true
+                fetch(`/api/hymns/${hymnId}/play`, { method: 'POST' }).catch(() => {})
+              }
               clear()
               const els = ev.elements as unknown as Element[][] | undefined
               els?.forEach((group) => group.forEach((n) => n.classList.add('abcjs-highlight')))
@@ -79,7 +84,7 @@ export default function ArrangementPanel({ hymnId, isOwner, initial }: Props) {
         /* nothing playing */
       }
     }
-  }, [abc])
+  }, [abc, hymnId, isOwner])
 
   const compose = async () => {
     setBusy(true)

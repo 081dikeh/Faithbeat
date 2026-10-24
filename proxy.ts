@@ -9,6 +9,5 @@ export const config = {
   matcher: [
     '/dashboard/:path*',
     '/my-hymns/:path*',
-    '/hymn/:path*',
   ],
 }

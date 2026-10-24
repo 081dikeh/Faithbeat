@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Music, Globe, Calendar } from 'lucide-react'
 import HymnActions from '@/app/components/hymn-actions'
 import ArrangementPanel from '@/app/components/arrangement-panel'
+import VisibilityToggle from '@/app/components/visibility-toggle'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,8 +14,8 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
     const { id } = await params
     const { data: session } = await auth.getSession()
 
-    if (!session?.user) {
-        redirect('/login')
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        notFound()
     }
 
     const [hymn] = await sql`select * from hymns where id = ${id}` as any[]
@@ -23,8 +24,11 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
         notFound()
     }
 
-    if (hymn.user_id !== session.user.id && !hymn.is_public) {
-        redirect('/dashboard')
+    const isOwner = !!session?.user && hymn.user_id === session.user.id
+
+    // Private hymns are only for their owner; public hymns can be viewed by anyone.
+    if (!isOwner && !hymn.is_public) {
+        redirect(session?.user ? '/dashboard' : `/login?redirectTo=/hymn/${id}`)
     }
 
     const [arrangement] = (await sql`
@@ -33,7 +37,6 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
         order by created_at desc
         limit 1
     `) as { abc_notation: string; key_signature: string | null; tempo_bpm: number | null }[]
-    const isOwner = hymn.user_id === session.user.id
 
     const languageLabels: Record<string, string> = {
         english: 'English',
@@ -57,11 +60,11 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
             <header className="bg-white/70 backdrop-blur border-b border-brass-soft/30">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
                     <Link
-                        href="/my-hymns"
+                        href={isOwner ? '/my-hymns' : '/discover'}
                         className="flex items-center gap-2 text-ink-soft/60 hover:text-brass transition-colors"
                     >
                         <ArrowLeft className="w-5 h-5" />
-                        Back to My Hymns
+                        {isOwner ? 'Back to My Hymns' : 'Back to Discover'}
                     </Link>
                 </div>
             </header>
@@ -139,8 +142,11 @@ export default async function HymnPage({ params }: { params: Promise<{ id: strin
                         </div>
                     )}
 
+                    {/* Visibility (owner only) */}
+                    {isOwner && <VisibilityToggle hymnId={hymn.id} initialPublic={hymn.is_public} />}
+
                     {/* Actions */}
-                    <HymnActions hymn={hymn} />
+                    <HymnActions hymn={hymn} isOwner={isOwner} />
 
                     {/* Stats */}
                     <div className="mt-8 pt-8 border-t border-brass-soft/30 grid grid-cols-3 gap-4 text-center">

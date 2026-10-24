@@ -3,13 +3,23 @@ import { sql } from '@/lib/db'
 import Link from 'next/link'
 import { Music, Globe, Calendar, Play } from 'lucide-react'
 
-export default async function DiscoverPage() {
+const LANGS = ['english', 'igbo', 'yoruba', 'hausa']
+const EVENTS = ['christmas', 'easter']
+
+export default async function DiscoverPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
+  const { f } = await searchParams
+  const active = (f ?? 'all').toLowerCase()
+  const lang = LANGS.includes(active) ? active : null
+  const event = EVENTS.includes(active) ? active : null
+
   const hymns = await sql`
     select h.*, u.name as author_name
     from hymns h
     left join neon_auth."user" u on u.id = h.user_id
     where h.is_public = true
-    order by h.plays_count desc
+      and (${lang}::text is null or h.language = ${lang})
+      and (${event}::text is null or h.church_event = ${event})
+    order by h.plays_count desc, h.created_at desc
     limit 50
   `
 
@@ -50,18 +60,23 @@ export default async function DiscoverPage() {
       <div className="bg-white/50 backdrop-blur border-b border-brass-soft/30">
         <div className="container mx-auto px-4 py-4">
           <div className="flex gap-3 overflow-x-auto">
-            {filters.map((f, i) => (
-              <button
-                key={f}
-                className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm transition-colors ${
-                  i === 0
-                    ? 'bg-ink text-parchment'
-                    : 'border border-brass-soft/50 text-ink-soft/70 hover:border-brass'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
+            {filters.map((label) => {
+              const key = label.toLowerCase()
+              const isActive = key === active || (key === 'all' && !lang && !event)
+              return (
+                <Link
+                  key={label}
+                  href={key === 'all' ? '/discover' : `/discover?f=${key}`}
+                  className={`px-4 py-2 rounded-lg whitespace-nowrap text-sm transition-colors ${
+                    isActive
+                      ? 'bg-ink text-parchment'
+                      : 'border border-brass-soft/50 text-ink-soft/70 hover:border-brass'
+                  }`}
+                >
+                  {label}
+                </Link>
+              )
+            })}
           </div>
         </div>
       </div>

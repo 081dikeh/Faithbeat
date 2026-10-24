@@ -7,6 +7,7 @@ import { downloadSheetMusicPDF, printSheetMusic } from '@/lib/utils/sheet-music-
 import { useState } from 'react'
 
 interface HymnActionsProps {
+  isOwner?: boolean
   hymn: {
     id: string
     title: string
@@ -26,7 +27,7 @@ interface HymnActionsProps {
   }
 }
 
-export default function HymnActions({ hymn, arrangement }: HymnActionsProps) {
+export default function HymnActions({ hymn, arrangement, isOwner = false }: HymnActionsProps) {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDownloadPDF = () => {
@@ -175,6 +176,7 @@ export default function HymnActions({ hymn, arrangement }: HymnActionsProps) {
           <Share2 className="w-4 h-4" />
           Share
         </button>
+        {isOwner && (
         <button
           onClick={handleDelete}
           disabled={isDeleting}
@@ -183,6 +185,7 @@ export default function HymnActions({ hymn, arrangement }: HymnActionsProps) {
           <Trash2 className="w-4 h-4" />
           {isDeleting ? 'Deleting...' : 'Delete'}
         </button>
+        )}
       </div>
     </div>
   )
