@@ -1,24 +1,25 @@
 // components/hymn-generator.tsx
 'use client'
 
-import { useState, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, Loader2, Music, Globe, Calendar, Download, Play, Pause, Feather } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Download, Pause, Play, Volume2 } from 'lucide-react'
+import { parseLyrics } from '@/lib/music/lyrics'
+import { errorBox, hintClass, inputClass, labelClass, primaryBtn, secondaryBtn } from './ui'
 import type { Language, ChurchEventType } from '@/types'
 
 interface HymnGeneratorProps {
-  onGenerate?: (hymn: any) => void
+  onGenerate?: (hymn: unknown) => void
 }
 
 const languages: { value: Language; label: string }[] = [
   { value: 'english', label: 'English' },
   { value: 'igbo', label: 'Igbo' },
-  { value: 'yoruba', label: 'Yoruba' },
+  { value: 'yoruba', label: 'Yorùbá' },
   { value: 'hausa', label: 'Hausa' },
 ]
 
 const events: { value: ChurchEventType; label: string }[] = [
-  { value: 'general', label: 'General Worship' },
+  { value: 'general', label: 'General worship' },
   { value: 'christmas', label: 'Christmas' },
   { value: 'easter', label: 'Easter' },
   { value: 'lent', label: 'Lent' },
@@ -40,12 +41,20 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
 
   const canGenerate = description.trim().length > 0 && !isGenerating
 
+  useEffect(() => {
+    if (generatedLyrics && window.matchMedia('(max-width: 1023px)').matches) {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      sheetRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+    }
+  }, [generatedLyrics])
+
   const handleGenerate = async () => {
     if (!description.trim()) {
-      setErrorMsg('Tell us what the hymn should be about before generating.')
+      setErrorMsg('Describe what the hymn should be about, then try again.')
       return
     }
 
@@ -58,7 +67,7 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
       const response = await fetch('/api/generate-hymn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, language, churchEvent })
+        body: JSON.stringify({ title, description, language, churchEvent }),
       })
 
       const data = await response.json()
@@ -67,14 +76,14 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
         window.location.href = '/login?redirectTo=/create'
         return
       }
-      if (!response.ok || data.error) throw new Error(data.error || 'Failed to generate hymn.')
+      if (!response.ok || data.error) throw new Error(data.error || 'The hymn could not be written. Try again.')
 
       setGeneratedLyrics(data.lyrics)
       setResultTitle(data.title)
 
       if (onGenerate) onGenerate(data)
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Failed to generate hymn. Please try again.')
+    } catch (error: unknown) {
+      setErrorMsg(error instanceof Error ? error.message : 'The hymn could not be written. Try again.')
     } finally {
       setIsGenerating(false)
     }
@@ -83,23 +92,24 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
   const handleGenerateAudio = async () => {
     if (!generatedLyrics) return
     setIsGeneratingAudio(true)
+    setErrorMsg(null)
 
     try {
       const response = await fetch('/api/generate-audio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lyrics: generatedLyrics, language })
+        body: JSON.stringify({ lyrics: generatedLyrics, language }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || 'Audio generation failed')
+        throw new Error(errorData.error || 'The audio could not be made.')
       }
 
       const blob = await response.blob()
       setAudioUrl(URL.createObjectURL(blob))
-    } catch (error: any) {
-      setErrorMsg(`Failed to generate audio: ${error.message}`)
+    } catch (error: unknown) {
+      setErrorMsg(error instanceof Error ? error.message : 'The audio could not be made.')
     } finally {
       setIsGeneratingAudio(false)
     }
@@ -122,7 +132,7 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
 
   const handleSaveHymn = async () => {
     if (!generatedLyrics || !resultTitle) {
-      setErrorMsg('Generate a hymn before saving.')
+      setErrorMsg('Write a hymn before saving.')
       return
     }
 
@@ -140,8 +150,8 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
           theme: description.split(' ').slice(0, 6).join(' '),
           description,
           language,
-          churchEvent
-        })
+          churchEvent,
+        }),
       })
 
       const data = await response.json()
@@ -154,214 +164,158 @@ export default function HymnGenerator({ onGenerate }: HymnGeneratorProps) {
         throw new Error(data.error)
       }
 
-      // Land on the hymn page, where the SATB arrangement can be composed.
+      // The hymn page is where the four-part music is composed.
       window.location.href = `/hymn/${data.hymn.id}`
-    } catch (error: any) {
-      setErrorMsg(`Failed to save hymn: ${error.message}`)
+    } catch (error: unknown) {
+      setErrorMsg(`The hymn was not saved. ${error instanceof Error ? error.message : 'Try again.'}`)
     } finally {
       setIsSaving(false)
     }
   }
 
+  const verses = generatedLyrics ? parseLyrics(generatedLyrics) : []
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-white/70 backdrop-blur rounded-3xl border border-brass-soft/40 shadow-[0_1px_0_0_rgba(176,141,87,0.25)] p-8 sm:p-10">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="inline-flex items-center gap-2 text-brass text-xs font-medium tracking-[0.18em] uppercase mb-3">
-            <Feather className="w-3.5 h-3.5" />
-            Write a new hymn
-          </div>
-          <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl text-ink italic">
-            What should this hymn say?
-          </h2>
-          <p className="text-ink-soft/70 mt-2 text-[15px]">
-            Give it a title and describe what you want it to carry — a scripture, an occasion,
-            a feeling. The words below shape the verses directly.
-          </p>
-        </div>
-
-        <div className="staff-rule mb-8" />
-
-        {/* Form */}
-        <div className="space-y-6">
+    <div className="grid gap-12 lg:grid-cols-12 lg:gap-14">
+      {/* The request */}
+      <div className="lg:col-span-5">
+        <div className="space-y-7 lg:sticky lg:top-8">
           <div>
-            <label className="block text-sm font-medium text-ink mb-2">
-              Hymn title <span className="text-ink-soft/50 font-normal">(optional — we'll suggest one)</span>
-            </label>
+            <label htmlFor="title" className={labelClass}>Title</label>
             <input
+              id="title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Song of the Rescued"
-              className="w-full px-4 py-3 rounded-xl border border-ink/10 bg-white focus:ring-2 focus:ring-brass focus:border-transparent outline-none font-[family-name:var(--font-display)] text-lg text-ink placeholder:text-ink-soft/30"
+              placeholder="Song of the Rescued"
+              className={`${inputClass} heading text-[1.2rem]`}
             />
+            <p className={hintClass}>Optional. Leave it blank and Faithbeat will suggest one.</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-ink mb-2">
-              Describe the hymn
-            </label>
+            <label htmlFor="description" className={labelClass}>What is the hymn about?</label>
             <textarea
+              id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. A hymn for a congregation walking through grief, holding on to the promise that God stays close even in silence. Reference Psalm 23."
-              className="w-full px-4 py-3 rounded-xl border border-ink/10 bg-white focus:ring-2 focus:ring-brass focus:border-transparent outline-none resize-none text-ink placeholder:text-ink-soft/30"
-              rows={4}
+              placeholder="Thanks for the harvest, for a congregation that has had a hard year. Mention Psalm 126."
+              className={`${inputClass} resize-none font-serif text-[1.1rem] leading-relaxed`}
+              rows={5}
             />
+            <p className={hintClass}>Name a scripture, an occasion or a feeling. The more specific, the closer the words.</p>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-6">
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-ink mb-2">
-                <Globe className="w-4 h-4" />
-                Language
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {languages.map((lang) => (
-                  <button
-                    key={lang.value}
-                    type="button"
-                    onClick={() => setLanguage(lang.value)}
-                    className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                      language === lang.value
-                        ? 'border-brass bg-brass/10 text-ink'
-                        : 'border-ink/10 text-ink-soft/70 hover:border-brass/50'
-                    }`}
-                  >
+          <fieldset>
+            <legend className={labelClass}>Language</legend>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {languages.map((lang) => (
+                <label key={lang.value} className="cursor-pointer">
+                  <input
+                    type="radio"
+                    name="language"
+                    value={lang.value}
+                    checked={language === lang.value}
+                    onChange={() => setLanguage(lang.value)}
+                    className="peer sr-only"
+                  />
+                  <span className="inline-block border-b-2 border-transparent px-1 py-1 text-[1.05rem] text-ink-2 peer-checked:hl peer-checked:font-medium peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-spruce hover:text-ink">
                     {lang.label}
-                  </button>
-                ))}
-              </div>
+                  </span>
+                </label>
+              ))}
             </div>
+          </fieldset>
 
-            <div>
-              <label className="flex items-center gap-1.5 text-sm font-medium text-ink mb-2">
-                <Calendar className="w-4 h-4" />
-                Occasion
-              </label>
-              <select
-                value={churchEvent}
-                onChange={(e) => setChurchEvent(e.target.value as ChurchEventType)}
-                className="w-full h-full px-4 py-3 rounded-xl border border-ink/10 bg-white focus:ring-2 focus:ring-brass focus:border-transparent outline-none text-ink"
-              >
-                {events.map((event) => (
-                  <option key={event.value} value={event.value}>{event.label}</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label htmlFor="occasion" className={labelClass}>Church season or occasion</label>
+            <select
+              id="occasion"
+              value={churchEvent}
+              onChange={(e) => setChurchEvent(e.target.value as ChurchEventType)}
+              className={inputClass}
+            >
+              {events.map((event) => (
+                <option key={event.value} value={event.value}>{event.label}</option>
+              ))}
+            </select>
           </div>
 
           {errorMsg && (
-            <p className="text-sm text-wine bg-wine/5 border border-wine/20 rounded-xl px-4 py-3">
+            <p role="alert" className={errorBox}>
               {errorMsg}
             </p>
           )}
 
-          <button
-            onClick={handleGenerate}
-            disabled={!canGenerate}
-            className={`w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-              canGenerate
-                ? 'bg-ink text-parchment hover:bg-ink/90 active:scale-[0.99]'
-                : 'bg-ink/20 text-parchment/60 cursor-not-allowed'
-            }`}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Writing your hymn...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5 text-brass" />
-                Generate hymn
-              </>
-            )}
+          <button onClick={handleGenerate} disabled={!canGenerate} aria-busy={isGenerating} className={`${primaryBtn} w-full py-3.5`}>
+            {isGenerating ? 'Writing the hymn' : 'Write the hymn'}
           </button>
         </div>
+      </div>
 
-        {/* Generated Lyrics */}
-        <AnimatePresence>
-          {generatedLyrics && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="mt-10"
-            >
-              <div className="staff-rule mb-8" />
+      {/* The result */}
+      <div className="lg:col-span-7" ref={sheetRef} aria-live="polite">
+        {isGenerating ? (
+          <div className="border border-rule bg-sheet p-8 sm:p-10">
+            <div className="staff staff-scan h-[17.5rem]" />
+            <p className="heading mt-6 text-[1.4rem]">Writing four verses</p>
+            <p className="text-serif-body mt-1 text-ink-2">This can take up to half a minute.</p>
+          </div>
+        ) : generatedLyrics ? (
+          <article className="border border-rule bg-sheet p-8 shadow-[0_1px_0_rgba(0,0,0,0.04),0_28px_44px_-30px_rgba(15,59,53,0.55)] sm:p-10">
+            <h2 className="display text-[2.6rem] sm:text-[3.4rem]">{resultTitle || 'Your hymn'}</h2>
 
-              <h3 className="font-[family-name:var(--font-display)] text-2xl sm:text-3xl italic text-ink mb-6 text-center">
-                {resultTitle || 'Your hymn'}
-              </h3>
+            <ol className="lyrics mt-8 space-y-7">
+              {(verses.length > 0 ? verses : [generatedLyrics.split('\n')]).map((lines, i) => (
+                <li key={i} className="grid grid-cols-[2rem_1fr] gap-x-2">
+                  <span className="pt-[0.5rem] font-sans text-sm text-ink-3">{i + 1}</span>
+                  <p className="whitespace-pre-line">{lines.join('\n')}</p>
+                </li>
+              ))}
+            </ol>
 
-              <div className="bg-parchment-dim/60 rounded-2xl p-6 sm:p-8 mb-6 border border-brass-soft/30">
-                <pre className="whitespace-pre-wrap font-[family-name:var(--font-display)] text-[17px] leading-8 text-ink-soft">
-                  {generatedLyrics}
-                </pre>
-              </div>
-
-              {audioUrl && (
-                <div className="bg-white rounded-xl p-4 mb-6 flex items-center gap-4 border border-brass-soft/40">
-                  <button
-                    onClick={togglePlayPause}
-                    className="w-11 h-11 shrink-0 rounded-full bg-ink text-parchment flex items-center justify-center hover:bg-ink/90"
-                  >
-                    {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-ink">Audio preview</p>
-                    <p className="text-xs text-ink-soft/60">Ready to play</p>
-                  </div>
-                  <button
-                    onClick={downloadAudio}
-                    className="px-4 py-2 rounded-lg border border-ink/10 hover:border-brass/50 flex items-center gap-2 text-sm text-ink-soft"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download
-                  </button>
-                  <audio ref={audioRef} src={audioUrl} onEnded={() => setIsPlaying(false)} />
-                </div>
-              )}
-
-              <div className="flex flex-col sm:flex-row gap-3">
+            {audioUrl && (
+              <div className="mt-8 flex items-center gap-4 border-t border-rule pt-6">
                 <button
-                  onClick={handleGenerateAudio}
-                  disabled={isGeneratingAudio || !!audioUrl}
-                  className={`flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 border transition-colors ${
-                    isGeneratingAudio || audioUrl
-                      ? 'border-ink/10 text-ink-soft/40 cursor-not-allowed'
-                      : 'border-ink/15 text-ink hover:border-brass'
-                  }`}
+                  onClick={togglePlayPause}
+                  aria-label={isPlaying ? 'Pause' : 'Play the words aloud'}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-spruce text-white hover:bg-spruce-2"
                 >
-                  {isGeneratingAudio ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Generating audio...</>
-                  ) : audioUrl ? (
-                    <><Music className="w-4 h-4" /> Audio ready</>
-                  ) : (
-                    <><Music className="w-4 h-4" /> Generate audio</>
-                  )}
+                  {isPlaying ? <Pause className="h-5 w-5" strokeWidth={1.75} /> : <Play className="ml-0.5 h-5 w-5" strokeWidth={1.75} />}
                 </button>
-                <button
-                  onClick={handleSaveHymn}
-                  disabled={isSaving}
-                  className={`flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 ${
-                    isSaving
-                      ? 'bg-sage/50 text-white cursor-not-allowed'
-                      : 'bg-sage text-white hover:bg-sage/90'
-                  }`}
-                >
-                  {isSaving ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
-                  ) : (
-                    'Save hymn'
-                  )}
+                <p className="min-w-0 flex-1 text-sm text-ink-2">The words, read aloud</p>
+                <button onClick={downloadAudio} className={secondaryBtn}>
+                  <Download className="h-4 w-4" strokeWidth={1.75} /> Download
                 </button>
+                <audio ref={audioRef} src={audioUrl} onEnded={() => setIsPlaying(false)} />
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+
+            <div className="mt-8 flex flex-col gap-3 border-t border-rule pt-6 sm:flex-row sm:items-center">
+              <button onClick={handleSaveHymn} disabled={isSaving} className={primaryBtn}>
+                {isSaving ? 'Saving' : 'Save to your hymns'}
+              </button>
+              <button onClick={handleGenerateAudio} disabled={isGeneratingAudio || !!audioUrl} className={secondaryBtn}>
+                <Volume2 className="h-4 w-4" strokeWidth={1.75} />
+                {isGeneratingAudio ? 'Preparing audio' : audioUrl ? 'Audio ready' : 'Hear the words'}
+              </button>
+            </div>
+            <p className="mt-4 max-w-md text-sm text-ink-3">
+              Saving takes you to the hymn, where Faithbeat composes the tune and four parts. “Hear the words” only reads the
+              lyrics aloud.
+            </p>
+          </article>
+        ) : (
+          <div className="staff border border-rule bg-sheet/60 p-8 sm:p-10">
+            <div className="max-w-md border border-rule bg-sheet p-5">
+              <p className="heading text-[1.5rem]">Your hymn will appear here</p>
+              <p className="text-serif-body mt-2 text-ink-2">
+                Four verses of four lines, all on the same syllable pattern, so one tune fits every verse.
+              </p>
+            </div>
+            <div className="h-48" />
+          </div>
+        )}
       </div>
     </div>
   )

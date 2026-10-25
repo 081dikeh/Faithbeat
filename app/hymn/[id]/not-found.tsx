@@ -1,31 +1,23 @@
 // app/hymn/[id]/not-found.tsx
 import Link from 'next/link'
-import { Music } from 'lucide-react'
+import SiteHeader from '@/app/components/site-header'
+import { primaryBtn, secondaryBtn } from '@/app/components/ui'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-parchment flex items-center justify-center p-4">
-      <div className="text-center">
-        <Music className="w-16 h-16 text-brass-soft mx-auto mb-4" />
-        <h1 className="font-[family-name:var(--font-display)] text-4xl italic text-ink mb-2">Hymn Not Found</h1>
-        <p className="text-ink-soft/70 mb-8">
-          This hymn doesn't exist or you don't have permission to view it.
+    <div className="min-h-screen">
+      <SiteHeader />
+      <main className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+        <h1 className="display text-[3.2rem] sm:text-[5rem]">That hymn is not here.</h1>
+        <p className="text-serif-body mt-5 max-w-xl text-ink-2">
+          It may have been deleted, or its owner may have made it private. Check the link, or look through the hymns
+          people have shared.
         </p>
-        <div className="flex gap-4 justify-center">
-          <Link
-            href="/my-hymns"
-            className="px-6 py-3 bg-ink text-parchment rounded-lg hover:bg-ink/90 transition-colors"
-          >
-            My Hymns
-          </Link>
-          <Link
-            href="/dashboard"
-            className="px-6 py-3 border border-brass-soft/50 text-ink-soft/70 rounded-lg hover:border-brass transition-colors"
-          >
-            Dashboard
-          </Link>
+        <div className="mt-8 flex flex-wrap gap-4">
+          <Link href="/discover" className={primaryBtn}>Browse shared hymns</Link>
+          <Link href="/my-hymns" className={secondaryBtn}>Your hymns</Link>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

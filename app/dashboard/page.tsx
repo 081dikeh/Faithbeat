@@ -1,156 +1,101 @@
 // app/dashboard/page.tsx
-import { auth } from '@/lib/auth/server'
+import type { Metadata } from 'next'
+import { getSessionSafe } from '@/lib/auth/session'
 import { sql } from '@/lib/db'
+import { dailyLimit } from '@/lib/usage'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Music, Plus, Library, Calendar } from 'lucide-react'
-import SignOutButton from '@/app/components/sign-out-button'
+import SiteHeader from '@/app/components/site-header'
+import SiteFooter from '@/app/components/site-footer'
+import HymnIndex, { type IndexRow } from '@/app/components/hymn-index'
+import { primaryBtn } from '@/app/components/ui'
 
 export const dynamic = 'force-dynamic'
+export const metadata: Metadata = { title: 'Home' }
 
 export default async function DashboardPage() {
-  const { data: session } = await auth.getSession()
-
-  if (!session?.user) {
-    redirect('/login')
-  }
+  const session = await getSessionSafe()
+  if (!session?.user) redirect('/login')
   const user = session.user
 
-  const [{ count }] = await sql`
-    select count(*)::int as count from hymns where user_id = ${user.id}
-  `
-  const hymnCount = count || 0
+  const [stats] = (await sql`
+    select count(*)::int as hymns,
+           count(*) filter (where is_public)::int as shared,
+           coalesce(sum(plays_count), 0)::int as plays
+    from hymns where user_id = ${user.id}
+  `) as { hymns: number; shared: number; plays: number }[]
+
+  const recent = (await sql`
+    with mine as (
+      select h.*,
+             row_number() over (order by h.created_at asc)::int as number,
+             exists (
+               select 1 from satb_arrangements a
+               where a.hymn_id = h.id and a.status = 'ready' and a.abc_notation is not null
+             ) as has_music
+      from hymns h where h.user_id = ${user.id}
+    )
+    select * from mine order by created_at desc limit 5
+  `) as IndexRow[]
+
+  // Remaining AI generations today (needs migration 002; the page works without it)
+  let left: number | null = null
+  try {
+    const [u] = (await sql`
+      select count(*)::int as c from generation_usage
+      where user_id = ${user.id}::uuid and kind = 'hymn' and created_at > now() - interval '24 hours'
+    `) as { c: number }[]
+    left = Math.max(0, dailyLimit('hymn') - u.c)
+  } catch {
+    left = null
+  }
+
+  const first = user.name?.split(' ')[0]
 
   return (
-    <div className="min-h-screen bg-parchment">
-      {/* Header */}
-      <header className="bg-white/70 backdrop-blur border-b border-brass-soft/30">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Music className="w-7 h-7 text-brass" />
-            <h1 className="font-[family-name:var(--font-display)] text-2xl italic text-ink">Faithbeat</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-ink-soft/70">
-              {user.name || user.email}
-            </span>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        {/* Welcome Section */}
-        <div className="mb-12">
-          <h2 className="font-[family-name:var(--font-display)] text-4xl italic text-ink mb-2">
-            Welcome back, {user.name?.split(' ')[0] || 'Friend'}
-          </h2>
-          <p className="text-lg text-ink-soft/70">
-            Ready to write some beautiful hymns today?
-          </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white/70 backdrop-blur rounded-xl p-6 border border-brass-soft/40 border-l-4 border-l-brass">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-ink-soft/70">Total Hymns</h3>
-              <Library className="w-5 h-5 text-brass" />
-            </div>
-            <p className="text-3xl font-[family-name:var(--font-display)] text-ink">{hymnCount}</p>
-          </div>
-
-          <div className="bg-white/70 backdrop-blur rounded-xl p-6 border border-brass-soft/40 border-l-4 border-l-sage">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-ink-soft/70">This Week</h3>
-              <Calendar className="w-5 h-5 text-sage" />
-            </div>
-            <p className="text-3xl font-[family-name:var(--font-display)] text-ink">0</p>
-          </div>
-
-          <div className="bg-white/70 backdrop-blur rounded-xl p-6 border border-brass-soft/40 border-l-4 border-l-wine">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-ink-soft/70">Languages</h3>
-              <Music className="w-5 h-5 text-wine" />
-            </div>
-            <p className="text-3xl font-[family-name:var(--font-display)] text-ink">4</p>
-            <p className="text-xs text-ink-soft/50 mt-1">En, Ig, Yo, Ha</p>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-6">
-          <Link
-            href="/create"
-            className="bg-ink rounded-2xl p-8 text-parchment hover:bg-ink/90 transition-colors"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <Plus className="w-10 h-10 text-brass" />
-            </div>
-            <h3 className="font-[family-name:var(--font-display)] text-2xl italic mb-2">Create New Hymn</h3>
-            <p className="text-parchment/70">
-              Write a custom hymn from a title and description
+    <div className="min-h-screen">
+      <SiteHeader />
+      <main className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
+          <div className="lg:col-span-8">
+            <h1 className="display text-[3rem] sm:text-[4.4rem]">
+              {first ? `Welcome back, ${first}.` : 'Welcome back.'}
+            </h1>
+            <p className="text-serif-body mt-4 text-ink-2">
+              {stats.hymns === 0
+                ? 'Your library is empty. Describe a hymn in a sentence or two and it will appear here.'
+                : `${stats.hymns} ${stats.hymns === 1 ? 'hymn' : 'hymns'} in your library, ${stats.shared} shared${
+                    stats.plays > 0 ? `, played ${stats.plays} ${stats.plays === 1 ? 'time' : 'times'}` : ''
+                  }.`}
             </p>
-          </Link>
-
-          <Link
-            href="/my-hymns"
-            className="bg-white/70 backdrop-blur rounded-2xl p-8 border border-brass-soft/40 hover:border-brass transition-colors block"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <Library className="w-10 h-10 text-brass" />
-              <span className="text-4xl font-[family-name:var(--font-display)] text-ink/10">{hymnCount}</span>
-            </div>
-            <h3 className="font-[family-name:var(--font-display)] text-2xl italic text-ink mb-2">My Hymns</h3>
-            <p className="text-ink-soft/70">
-              View and manage your created hymns
-            </p>
-          </Link>
-
-          <Link
-            href="/compose"
-            className="bg-sage rounded-2xl p-8 text-white hover:bg-sage/90 transition-colors md:col-span-2"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <Music className="w-10 h-10" />
-            </div>
-            <h3 className="font-[family-name:var(--font-display)] text-2xl italic mb-2">Compose & Arrange</h3>
-            <p className="text-white/80">
-              Generate SATB notation and playback
-            </p>
-          </Link>
+          </div>
+          <div className="lg:col-span-4 lg:text-right">
+            <Link href="/create" className={primaryBtn}>
+              Write a hymn
+            </Link>
+            {left !== null && (
+              <p className="mt-3 text-sm text-ink-3">
+                {left === 0
+                  ? 'You have used today’s hymn limit. It resets within 24 hours.'
+                  : `You can write ${left} more ${left === 1 ? 'hymn' : 'hymns'} today.`}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Getting Started Guide */}
-        {hymnCount === 0 && (
-          <div className="mt-12 bg-white/70 backdrop-blur rounded-2xl p-8 border border-brass-soft/40">
-            <h3 className="font-[family-name:var(--font-display)] text-xl italic text-ink mb-4">
-              Getting Started
-            </h3>
-            <ol className="space-y-3 text-ink-soft/80">
-              <li className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-brass text-ink rounded-full flex items-center justify-center text-sm font-bold">
-                  1
-                </span>
-                <span>Click "Create New Hymn" and describe what it should be about</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-brass text-ink rounded-full flex items-center justify-center text-sm font-bold">
-                  2
-                </span>
-                <span>Choose your language and occasion</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-brass text-ink rounded-full flex items-center justify-center text-sm font-bold">
-                  3
-                </span>
-                <span>Save your hymn to your library</span>
-              </li>
-            </ol>
-          </div>
+        {recent.length > 0 && (
+          <section className="mt-16" aria-labelledby="recent">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 id="recent" className="heading text-[1.7rem]">Recent hymns</h2>
+              <Link href="/my-hymns" className="text-[0.95rem] underline underline-offset-4 decoration-rule hover:decoration-ink">
+                All your hymns
+              </Link>
+            </div>
+            <HymnIndex rows={recent} showStatus />
+          </section>
         )}
       </main>
+      <SiteFooter />
     </div>
   )
 }

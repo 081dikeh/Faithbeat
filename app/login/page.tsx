@@ -1,13 +1,14 @@
 // app/login/page.tsx
 import { Suspense } from 'react'
+import type { Metadata } from 'next'
 import LoginForm from './login-form'
+
+export const metadata: Metadata = { title: 'Sign in' }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-parchment flex items-center justify-center p-4">
-      <Suspense fallback={null}>
-        <LoginForm />
-      </Suspense>
-    </div>
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

@@ -2,10 +2,9 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { LogOut } from 'lucide-react'
 import { authClient } from '@/lib/auth/client'
 
-export default function SignOutButton() {
+export default function SignOutButton({ className = '' }: { className?: string }) {
   const router = useRouter()
 
   const handleSignOut = async () => {
@@ -17,10 +16,9 @@ export default function SignOutButton() {
   return (
     <button
       onClick={handleSignOut}
-      className="flex items-center gap-2 px-4 py-2 text-ink-soft/70 hover:text-wine"
+      className={`text-sm text-ink-2 underline decoration-rule underline-offset-4 hover:text-ink hover:decoration-ink ${className}`}
     >
-      <LogOut className="w-4 h-4" />
-      Sign Out
+      Sign out
     </button>
   )
 }

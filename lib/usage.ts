@@ -5,10 +5,14 @@
 // control but not a hard guarantee.
 import { sql } from '@/lib/db'
 
-export type UsageKind = 'hymn' | 'compose'
+export type UsageKind = 'hymn' | 'compose' | 'audio'
 
-const DEFAULTS: Record<UsageKind, number> = { hymn: 10, compose: 30 }
-const ENV_KEYS: Record<UsageKind, string> = { hymn: 'HYMN_DAILY_LIMIT', compose: 'COMPOSE_DAILY_LIMIT' }
+const DEFAULTS: Record<UsageKind, number> = { hymn: 10, compose: 30, audio: 20 }
+const ENV_KEYS: Record<UsageKind, string> = {
+  hymn: 'HYMN_DAILY_LIMIT',
+  compose: 'COMPOSE_DAILY_LIMIT',
+  audio: 'AUDIO_DAILY_LIMIT',
+}
 
 export function dailyLimit(kind: UsageKind): number {
   const fromEnv = Number(process.env[ENV_KEYS[kind]])
@@ -46,7 +50,7 @@ export async function releaseUsage(id: string): Promise<void> {
 }
 
 export function limitMessage(kind: UsageKind, limit: number): string {
-  return kind === 'hymn'
-    ? `You've reached today's limit of ${limit} generated hymns. Please try again tomorrow.`
-    : `You've reached today's limit of ${limit} AI compositions.`
+  if (kind === 'hymn') return `You've reached today's limit of ${limit} generated hymns. Please try again tomorrow.`
+  if (kind === 'audio') return `You've reached today's limit of ${limit} audio readings. Please try again tomorrow.`
+  return `You've reached today's limit of ${limit} AI compositions.`
 }

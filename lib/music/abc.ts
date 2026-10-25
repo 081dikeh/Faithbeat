@@ -47,6 +47,8 @@ export function buildAbc(inp: AbcInput): string {
     'L:1/8',
     `Q:1/4=${Math.round(inp.tempo)}`,
     '%%score {(S A) (T B)}',
+    '%%titlefont "Gentium Book Plus" 24 bold',
+    '%%vocalfont "Gentium Book Plus" 15',
     'V:S clef=treble name="S" snm="S" stem=up',
     'V:A clef=treble name="A" snm="A" stem=down',
     'V:T clef=bass name="T" snm="T" stem=up',
@@ -54,8 +56,9 @@ export function buildAbc(inp: AbcInput): string {
     `K:${inp.key}`,
   ]
   const body: string[] = []
-  for (let from = 0; from < lines; from += 2) {
-    const to = Math.min(from + 1, lines - 1)
+  // One phrase per system keeps every syllable readable, on a phone as well as a desktop.
+  for (let from = 0; from < lines; from += 1) {
+    const to = from
     const final = to === lines - 1
     ;(['S', 'A', 'T', 'B'] as const).forEach((v) => {
       body.push(`V:${v}`)

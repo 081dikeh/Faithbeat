@@ -1,115 +1,147 @@
 // app/page.tsx
 import Link from 'next/link'
-import { Music, Sparkles, Globe, Calendar, Feather } from 'lucide-react'
+import SiteHeader from '@/app/components/site-header'
+import SiteFooter from '@/app/components/site-footer'
+import ScoreDemo from '@/app/components/score-demo'
+
+const steps = [
+  {
+    title: 'Say what it is for',
+    body: 'Add a title if you have one, then describe the occasion, the scripture or the feeling you want the words to carry. Choose the language and the church season.',
+  },
+  {
+    title: 'Read the words',
+    body: 'You get four verses of four lines, all on the same syllable pattern, so one tune fits every verse. Save the hymns you want to keep.',
+  },
+  {
+    title: 'Play and print the four parts',
+    body: 'Faithbeat composes a tune and sets soprano, alto, tenor and bass around it. Listen to it, then print the score for rehearsal.',
+  },
+]
+
+const specimens = [
+  { language: 'Igbo', letters: 'ị ọ ụ ṅ' },
+  { language: 'Yorùbá', letters: 'ẹ ọ ṣ à á' },
+  { language: 'Hausa', letters: 'ɓ ɗ ƙ' },
+]
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-parchment">
-      {/* Header */}
-      <header className="container mx-auto px-4 py-6 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Music className="w-7 h-7 text-brass" />
-          <h1 className="font-[family-name:var(--font-display)] text-2xl italic text-ink">Faithbeat</h1>
-        </div>
-        <nav className="flex items-center gap-2 sm:gap-4">
-          <Link
-            href="/create"
-            className="px-4 py-2 text-sm text-ink-soft/70 hover:text-brass transition-colors"
-          >
-            Create Hymn
-          </Link>
-          <Link
-            href="/login"
-            className="px-4 py-2 text-sm text-ink-soft/70 hover:text-brass transition-colors"
-          >
-            Login
-          </Link>
-          <Link
-            href="/signup"
-            className="px-5 py-2.5 bg-ink text-parchment text-sm font-medium rounded-lg hover:bg-ink/90 transition-colors"
-          >
-            Get Started
-          </Link>
-        </nav>
-      </header>
+    <div className="min-h-screen">
+      <SiteHeader />
 
-      {/* Hero Section */}
-      <main className="container mx-auto px-4 py-16 sm:py-20 text-center">
-        <div className="inline-flex items-center gap-2 text-brass text-xs font-medium tracking-[0.18em] uppercase mb-5">
-          <Feather className="w-3.5 h-3.5" />
-          Hymns, written with you
-        </div>
-        <h2 className="font-[family-name:var(--font-display)] text-4xl sm:text-6xl italic text-ink mb-6 leading-tight">
-          Write hymns your
-          <br />
-          congregation will carry
-        </h2>
-        <p className="text-lg sm:text-xl text-ink-soft/70 mb-10 max-w-2xl mx-auto">
-          Generate original congregational hymns in Igbo, Yoruba, Hausa, and English —
-          from a title and a description, built for African church worship.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            href="/create"
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-ink text-parchment text-lg rounded-xl hover:bg-ink/90 transition-colors"
-          >
-            <Sparkles className="w-5 h-5 text-brass" />
-            Try It Free Now
-          </Link>
-          <Link
-            href="/signup"
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-brass text-ink text-lg rounded-xl hover:bg-brass/10 transition-colors"
-          >
-            Sign Up Free
-          </Link>
-        </div>
-
-        <div className="staff-rule max-w-md mx-auto my-16" />
-
-        {/* Features */}
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="p-8 bg-white/70 backdrop-blur rounded-2xl border border-brass-soft/40">
-            <Globe className="w-10 h-10 text-brass mx-auto mb-4" />
-            <h3 className="font-[family-name:var(--font-display)] text-xl italic text-ink mb-2">Local Languages</h3>
-            <p className="text-ink-soft/70 text-[15px]">
-              Generate hymns in Igbo, Yoruba, Hausa, and English
+      <main>
+        {/* Hero: the product itself */}
+        <section className="mx-auto grid max-w-6xl gap-12 px-5 pb-8 pt-12 sm:px-8 sm:pt-16 lg:grid-cols-12 lg:gap-10 lg:pt-20">
+          <div className="lg:col-span-5">
+            <h1 className="display text-[3.6rem] sm:text-[5.2rem] lg:text-[5.6rem]">
+              Write a hymn for this Sunday.
+            </h1>
+            <p className="text-serif-body mt-7 max-w-[34rem] text-[1.3rem] text-ink-2">
+              Describe the occasion and what the words should say. Faithbeat writes the lyrics in Igbo,
+              Yorùbá, Hausa or English, then sets them for four voices, with sheet music your choir can
+              play, print and rehearse from.
             </p>
+            <div className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
+              <Link
+                href="/create"
+                className="rounded-md bg-spruce px-6 py-3.5 text-[1.05rem] font-medium text-white hover:bg-spruce-2"
+              >
+                Write a hymn
+              </Link>
+              <Link
+                href="/discover"
+                className="text-[1.05rem] font-medium underline decoration-ink/30 underline-offset-[6px] hover:decoration-ink"
+              >
+                Browse shared hymns
+              </Link>
+            </div>
           </div>
 
-          <div className="p-8 bg-white/70 backdrop-blur rounded-2xl border border-brass-soft/40">
-            <Sparkles className="w-10 h-10 text-brass mx-auto mb-4" />
-            <h3 className="font-[family-name:var(--font-display)] text-xl italic text-ink mb-2">AI-Powered</h3>
-            <p className="text-ink-soft/70 text-[15px]">
-              Describe what you need — the AI writes lyrics that genuinely fit it
+          <div className="lg:col-span-7">
+            <ScoreDemo />
+          </div>
+        </section>
+
+        {/* How it works: a real sequence */}
+        <section className="mx-auto mt-20 max-w-6xl px-5 sm:px-8 sm:mt-28">
+          <h2 className="heading max-w-2xl text-[2.3rem] sm:text-[3rem]">
+            From a few sentences to a part each singer can read
+          </h2>
+          <ol className="mt-12 grid border-t border-ink md:grid-cols-3">
+            {steps.map((s, i) => (
+              <li
+                key={s.title}
+                className="border-b border-rule py-8 md:border-b-0 md:border-r md:px-8 md:first:pl-0 md:last:border-r-0 md:last:pr-0"
+              >
+                <span className="display text-[3.4rem] text-ink-3">{i + 1}</span>
+                <h3 className="heading mt-3 text-[1.45rem]">{s.title}</h3>
+                <p className="text-serif-body mt-3 text-ink-2">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* Languages: a type specimen, not a feature tile */}
+        <section className="mx-auto mt-20 grid max-w-6xl gap-10 px-5 sm:mt-28 sm:px-8 lg:grid-cols-12">
+          <div className="lg:col-span-5">
+            <h2 className="heading text-[2.3rem] sm:text-[3rem]">
+              Set in a typeface made for your languages
+            </h2>
+            <p className="text-serif-body mt-5 max-w-[30rem] text-ink-2">
+              Dotted vowels, tone marks and hooked consonants stay clear on screen and on the printed
+              page, in the lyrics and under every note.
             </p>
           </div>
+          <dl className="border-t border-ink lg:col-span-7">
+            {specimens.map((s) => (
+              <div
+                key={s.language}
+                className="grid grid-cols-[6.5rem_1fr] items-baseline gap-4 border-b border-rule py-5 sm:grid-cols-[9rem_1fr]"
+              >
+                <dt className="text-sm text-ink-3">{s.language}</dt>
+                <dd className="font-serif text-[2.6rem] leading-tight tracking-wide sm:text-[3.4rem]">
+                  {s.letters}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
-          <div className="p-8 bg-white/70 backdrop-blur rounded-2xl border border-brass-soft/40">
-            <Calendar className="w-10 h-10 text-brass mx-auto mb-4" />
-            <h3 className="font-[family-name:var(--font-display)] text-xl italic text-ink mb-2">Church Calendar</h3>
-            <p className="text-ink-soft/70 text-[15px]">
-              Special hymns for Christmas, Easter, Lent, and more
-            </p>
+        {/* Honesty about what is generated and what is rule-based */}
+        <section className="on-board mt-20 bg-board text-chalk sm:mt-28">
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-12">
+            <h2 className="heading text-[2.2rem] text-white sm:text-[2.8rem] lg:col-span-5">
+              The harmony follows the rules of choral writing
+            </h2>
+            <div className="text-serif-body space-y-5 text-[1.25rem] text-chalk lg:col-span-6 lg:col-start-7">
+              <p>
+                An AI model writes the words and proposes the tune. It does not write the four parts. A
+                rule-based arranger does, keeping every voice inside a comfortable range and avoiding
+                parallel fifths and octaves, so what you print can actually be sung.
+              </p>
+              <p className="text-chalk-2">
+                Read Igbo, Yorùbá and Hausa lyrics with a native speaker before the hymn goes into a
+                service. Faithbeat gives you a strong first draft, not a final text.
+              </p>
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* CTA Section */}
-        <div className="mt-16 bg-ink rounded-3xl p-12 text-parchment">
-          <h3 className="font-[family-name:var(--font-display)] text-3xl italic mb-4">
-            Ready to Write Your First Hymn?
-          </h3>
-          <p className="text-lg mb-8 text-parchment/70">
-            Join worship leaders across the continent using Faithbeat
-          </p>
-          <Link
-            href="/create"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-brass text-ink text-lg rounded-xl hover:bg-brass-soft font-semibold transition-colors"
-          >
-            <Music className="w-5 h-5" />
-            Start Creating Free
-          </Link>
-        </div>
+        <section className="mx-auto max-w-6xl px-5 pt-20 sm:px-8 sm:pt-28">
+          <div className="flex flex-col items-start justify-between gap-8 border-t border-ink pt-10 md:flex-row md:items-end">
+            <h2 className="display max-w-xl text-[2.8rem] sm:text-[4rem]">Start with one sentence.</h2>
+            <Link
+              href="/create"
+              className="rounded-md bg-spruce px-6 py-3.5 text-[1.05rem] font-medium text-white hover:bg-spruce-2"
+            >
+              Write your first hymn
+            </Link>
+          </div>
+        </section>
       </main>
+
+      <SiteFooter />
     </div>
   )
 }

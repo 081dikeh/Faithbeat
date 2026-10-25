@@ -10,6 +10,8 @@
     "test:music": "npx tsx scripts/test-music.ts"
   },
   "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource/gentium-book-plus": "^5.3.0",
     "@neondatabase/auth": "^0.4.2-beta",
     "@neondatabase/serverless": "^1.1.0",
     "@react-pdf/renderer": "^4.3.2",

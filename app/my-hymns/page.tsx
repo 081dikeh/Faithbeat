@@ -1,93 +1,66 @@
 // app/my-hymns/page.tsx
-import { auth } from '@/lib/auth/server'
+import type { Metadata } from 'next'
+import { getSessionSafe } from '@/lib/auth/session'
 import { sql } from '@/lib/db'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Music, ArrowLeft } from 'lucide-react'
+import SiteHeader from '@/app/components/site-header'
+import SiteFooter from '@/app/components/site-footer'
+import HymnIndex, { type IndexRow } from '@/app/components/hymn-index'
+import { primaryBtn } from '@/app/components/ui'
 
 export const dynamic = 'force-dynamic'
+export const metadata: Metadata = { title: 'Your hymns' }
 
 export default async function MyHymnsPage() {
-  const { data: session } = await auth.getSession()
+  const session = await getSessionSafe()
+  if (!session?.user) redirect('/login')
 
-  if (!session?.user) {
-    redirect('/login')
-  }
-
-  const hymns = await sql`
-    select * from hymns where user_id = ${session.user.id} order by created_at desc
-  `
+  const hymns = (await sql`
+    with mine as (
+      select h.*,
+             row_number() over (order by h.created_at asc)::int as number,
+             exists (
+               select 1 from satb_arrangements a
+               where a.hymn_id = h.id and a.status = 'ready' and a.abc_notation is not null
+             ) as has_music
+      from hymns h where h.user_id = ${session.user.id}
+    )
+    select * from mine order by created_at desc
+  `) as IndexRow[]
 
   return (
-    <div className="min-h-screen bg-parchment p-6 sm:p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 text-ink-soft/60 hover:text-brass transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back
-            </Link>
-            <h1 className="font-[family-name:var(--font-display)] text-3xl italic text-ink">My Hymns</h1>
+    <div className="min-h-screen">
+      <SiteHeader active="library" />
+      <main className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
+        <div className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div>
+            <h1 className="display text-[3rem] sm:text-[4.4rem]">Your hymns</h1>
+            <p className="text-serif-body mt-3 text-ink-2">
+              {hymns.length === 0
+                ? 'Nothing here yet.'
+                : `${hymns.length} ${hymns.length === 1 ? 'hymn' : 'hymns'}, newest first. Numbers follow the order you wrote them.`}
+            </p>
           </div>
-          <Link
-            href="/create"
-            className="px-4 py-2 bg-ink text-parchment rounded-lg hover:bg-ink/90 transition-colors text-center"
-          >
-            Create New
-          </Link>
+          <Link href="/create" className={primaryBtn}>Write a hymn</Link>
         </div>
 
-        <div className="staff-rule mb-8" />
-
-        {hymns && hymns.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {hymns.map((hymn: any) => (
-              <div
-                key={hymn.id}
-                className="bg-white/70 backdrop-blur rounded-xl border border-brass-soft/40 hover:border-brass transition-colors p-6"
-              >
-                <h3 className="font-[family-name:var(--font-display)] text-lg italic text-ink mb-2">
-                  {hymn.title}
-                </h3>
-                <p className="text-sm text-ink-soft/60 mb-4">
-                  {hymn.language} • {new Date(hymn.created_at).toLocaleDateString()}
-                </p>
-                <div className="bg-parchment-dim/60 rounded-lg p-3 mb-4">
-                  <pre className="text-xs text-ink-soft/80 line-clamp-3 whitespace-pre-wrap">
-                    {hymn.lyrics}
-                  </pre>
-                </div>
-                <Link
-                  href={`/hymn/${hymn.id}`}
-                  className="w-full py-2 bg-ink text-parchment rounded-lg hover:bg-ink/90 block text-center transition-colors"
-                >
-                  View Full
-                </Link>
-              </div>
-            ))}
-          </div>
+        {hymns.length > 0 ? (
+          <HymnIndex rows={hymns} showStatus />
         ) : (
-          <div className="text-center py-20">
-            <Music className="w-16 h-16 text-brass-soft mx-auto mb-4" />
-            <h3 className="font-[family-name:var(--font-display)] text-2xl italic text-ink mb-2">
-              No Hymns Yet
-            </h3>
-            <p className="text-ink-soft/70 mb-6">
-              Create your first hymn to get started!
-            </p>
-            <Link
-              href="/create"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-ink text-parchment rounded-lg hover:bg-ink/90 transition-colors"
-            >
-              <Music className="w-5 h-5 text-brass" />
-              Create Your First Hymn
-            </Link>
+          <div className="staff border-y border-rule px-6 py-16 sm:py-20">
+            <div className="max-w-lg border border-rule bg-sheet p-5">
+              <h2 className="heading text-[1.8rem]">Your first hymn starts with a sentence</h2>
+              <p className="text-serif-body mt-3 text-ink-2">
+                Say what it is for, such as an occasion, a scripture or a feeling. The hymn you save appears here,
+                with its music, ready to print and share.
+              </p>
+              <Link href="/create" className={`${primaryBtn} mt-6`}>Write a hymn</Link>
+            </div>
           </div>
         )}
-      </div>
+      </main>
+      <SiteFooter />
     </div>
   )
 }

@@ -1,68 +1,197 @@
 @import "tailwindcss";
+@import "abcjs/abcjs-audio.css";
 
-:root {
-  /* Faithbeat palette — hymnal at candlelight, not the usual AI cream+terracotta */
-  --ink: #1c1b2a;        /* deep indigo-black — hero / header surfaces */
-  --ink-soft: #2e2c3e;   /* body text on light surfaces */
-  --parchment: #f3eee2;  /* page background — warm hymnal paper */
-  --parchment-dim: #eae3d3;
-  --brass: #b08d57;      /* candlelight gold accent */
-  --brass-soft: #d8c39c;
-  --wine: #6b2737;       /* hymnal-cover red — used sparingly for emphasis */
-  --sage: #5c7a6b;       /* success / "ready" states */
+/*
+  Faithbeat design tokens.
+  Chalkboard spruce, white paper, and one yellow highlighter: the colours of a
+  choir room (hymn board, printed scores, a marker for what to rehearse).
+  The highlighter only ever means "selected" or "playing".
+*/
+@theme {
+  --color-paper: #f4f4ef;
+  --color-sheet: #ffffff;
+  --color-ink: #1b2926;
+  --color-ink-2: #46544f;
+  --color-ink-3: #66746f;
+  --color-rule: #d3d6cb;
+  --color-wash: #e9ebe2;
+  --color-spruce: #0f3b35;
+  --color-spruce-2: #17524a;
+  --color-board: #0a2a26;
+  --color-chalk: #e9ecdf;
+  --color-chalk-2: #aebcb2;
+  --color-marker: #ffe14d;
+  --color-alert: #a4262c;
 
-  --background: var(--parchment);
-  --foreground: var(--ink-soft);
+  --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Gentium Book Plus", Georgia, "Times New Roman", serif;
 }
 
-@theme inline {
-  --color-ink: var(--ink);
-  --color-ink-soft: var(--ink-soft);
-  --color-parchment: var(--parchment);
-  --color-parchment-dim: var(--parchment-dim);
-  --color-brass: var(--brass);
-  --color-brass-soft: var(--brass-soft);
-  --color-wine: var(--wine);
-  --color-sage: var(--sage);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-body), system-ui, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  font-optical-sizing: auto;
 }
 
-/* Staff-line rule — the signature motif. Five hairlines like a music staff,
-   used as section dividers throughout the app instead of a generic <hr>. */
-.staff-rule {
-  height: 18px;
-  background-image: repeating-linear-gradient(
-    var(--brass-soft),
-    var(--brass-soft) 1px,
-    transparent 1px,
-    transparent 4.5px
+::selection {
+  background: var(--color-marker);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-spruce);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.on-board :focus-visible {
+  outline-color: var(--color-marker);
+}
+
+/* Headlines: Bricolage at a narrow width, tight and heavy. */
+.display {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-stretch: 78%;
+  letter-spacing: -0.025em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+.heading {
+  font-family: var(--font-sans);
+  font-weight: 650;
+  font-stretch: 88%;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+/* Words meant to be read or sung use Gentium, which is built for Igbo,
+   Yoruba and Hausa orthography (dotted vowels, tone marks, hooked consonants). */
+.text-serif-body {
+  font-family: var(--font-serif);
+  font-size: 1.1875rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+.lyrics {
+  font-family: var(--font-serif);
+  font-size: 1.3125rem;
+  line-height: 1.7;
+  font-feature-settings: "kern", "liga";
+}
+
+/* Highlighter swipe behind text: selected state. A utility so variants like peer-checked:hl work. */
+@utility hl {
+  background-image: linear-gradient(
+    transparent 54%,
+    var(--color-marker) 54%,
+    var(--color-marker) 94%,
+    transparent 94%
   );
-  background-size: 100% 100%;
-  opacity: 0.7;
+}
+
+/* Faint five-line staves, used for empty and loading states. */
+.staff {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='112'><path d='M0 20.5H8M0 34.5H8M0 48.5H8M0 62.5H8M0 76.5H8' stroke='%23c6cabd' stroke-width='1' fill='none'/></svg>");
+  background-size: 8px 112px;
+  background-repeat: repeat;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .fade-in-up {
-    animation: fadeInUp 0.5s ease-out both;
+  .staff-scan {
+    position: relative;
+    overflow: hidden;
+  }
+  .staff-scan::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background: var(--color-marker);
+    box-shadow: 0 0 0 1px rgba(15, 59, 53, 0.12);
+    animation: scan 2.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  }
+  @keyframes scan {
+    from { left: 0; }
+    to { left: calc(100% - 3px); }
   }
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+/* ---- Score (abcjs) ---- */
+.score-sheet svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+/* playing notes get a highlighter halo */
+.abcjs-highlight {
+  fill: var(--color-ink);
+  stroke: var(--color-marker);
+  stroke-width: 7px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+/* abcjs transport controls restyled to match */
+.abcjs-inline-audio {
+  height: 44px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background-color: var(--color-spruce);
+}
+.abcjs-inline-audio .abcjs-btn {
+  height: 44px;
+  width: 36px;
+  padding: 11px 6px;
+}
+.abcjs-btn g {
+  fill: var(--color-chalk);
+  stroke: var(--color-chalk);
+}
+.abcjs-inline-audio .abcjs-btn:hover g {
+  fill: var(--color-marker);
+  stroke: var(--color-marker);
+}
+.abcjs-inline-audio .abcjs-midi-selection.abcjs-pushed,
+.abcjs-inline-audio .abcjs-midi-loop.abcjs-pushed,
+.abcjs-inline-audio .abcjs-midi-reset.abcjs-pushed {
+  border-color: var(--color-chalk-2);
+  background-color: var(--color-spruce-2);
+}
+.abcjs-inline-audio .abcjs-midi-progress-background {
+  background-color: var(--color-board);
+  border: 2px solid var(--color-chalk-2);
+}
+.abcjs-inline-audio .abcjs-midi-progress-indicator {
+  background-color: var(--color-marker);
+}
+.abcjs-inline-audio .abcjs-midi-clock,
+.abcjs-inline-audio .abcjs-tempo-wrapper {
+  color: var(--color-chalk);
+  font-family: var(--font-sans);
+}
+.abcjs-inline-audio .abcjs-loading-svg circle {
+  stroke: var(--color-chalk);
+}
+
+/* Print: only the score sheet. */
+@media print {
+  body * { visibility: hidden; }
+  #faithbeat-score, #faithbeat-score * { visibility: visible; }
+  #faithbeat-score {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  .abcjs-highlight { stroke: none; }
 }

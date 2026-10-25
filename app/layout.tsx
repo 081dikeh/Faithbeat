@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import "@fontsource-variable/bricolage-grotesque/standard.css";
+import "@fontsource/gentium-book-plus/400.css";
+import "@fontsource/gentium-book-plus/400-italic.css";
+import "@fontsource/gentium-book-plus/700.css";
 import "./globals.css";
 
-const fraunces = Fraunces({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
-});
-
-const inter = Inter({
-  variable: "--font-body",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Faithbeat — Write hymns in your own words",
-  description: "Generate original congregational hymns in English, Igbo, Yoruba, and Hausa from a title and a description.",
+  title: {
+    default: "Faithbeat: hymns in Igbo, Yoruba, Hausa and English",
+    template: "%s | Faithbeat",
+  },
+  description:
+    "Describe a hymn and Faithbeat writes the lyrics in Igbo, Yoruba, Hausa or English, then sets them for four voices with sheet music you can play, print and rehearse from.",
 };
 
 export default function RootLayout({
@@ -26,9 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${fraunces.variable} ${inter.variable} antialiased`}>
-        {children}
-      </body>
+      <body className="bg-paper text-ink antialiased">{children}</body>
     </html>
   );
 }
